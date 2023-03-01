@@ -12,13 +12,21 @@ class RegressionTree{
 
     var root = 0
     var max_depth = 0
+    var min_split = 20
 
     constructor(max_depth: Int){
         this.max_depth = max_depth;
     }
 
     fun find_best_split(){
+        //place split
+        //average the label values of left leaf and right leaf
+        //find square error of left leaf and right leaf
+        //check to see if it is the smallest error
+        //if so save it, otherwise go to next split
 
+        //remember minimum split variable
+        //can only split a leaf if there are more than min_split datapoints
     }
 
     fun build_tree(){
@@ -45,6 +53,69 @@ fun main(args: Array<String>) {
     println("Labels")
     labels.forEach { println(it) }
 
+}
+
+fun feature_merge_sort(feature_vector: Array<Array<Double>>, feature_index: Int, increasing: Boolean): Array<Array<Double>>{
+    if (increasing){
+        if (feature_vector.size <= 1){
+            return feature_vector
+        }else if (feature_vector.size == 2){
+            if (feature_vector[0][feature_index] > feature_vector[1][feature_index]){
+                swap(feature_vector, 0, 1);
+                return feature_vector
+            }
+        }else{
+            val feature_vector_half1 = emptyArray<Array<Double>>()
+            val feature_vector_half2 = emptyArray<Array<Double>>()
+            return feature_merge(feature_merge_sort(feature_vector_half1, feature_index, increasing), feature_merge_sort(feature_vector_half2, feature_index, increasing), feature_index, increasing)
+        }
+    }else{
+        return feature_vector
+    }
+    return feature_vector
+}
+
+fun swap(array: Array<Array<Double>>, index1: Int, index2: Int){
+    val temp = array[index1]
+    array[index1] = array[index2]
+    array[index2] = temp
+}
+
+fun feature_merge(feature_vector1: Array<Array<Double>>, feature_vector2: Array<Array<Double>>, feature_index: Int, increasing: Boolean): Array<Array<Double>>{
+    var merged_array = emptyArray<Array<Double>>()
+    var i = 0
+    var j = 0
+    if(increasing){
+        while (i < feature_vector1.size && j < feature_vector2.size){
+            if(feature_vector1[i][feature_index] < feature_vector2[j][feature_index]){
+                merged_array += feature_vector1[i++]
+            }else{
+                merged_array += feature_vector2[j++]
+            }
+        }
+        while (i < feature_vector1.size){
+            merged_array += feature_vector1[i++]
+        }
+        while (j < feature_vector2.size){
+            merged_array += feature_vector2[j++]
+        }
+    }else{
+        while (i < feature_vector1.size && j < feature_vector2.size){
+            if(feature_vector1[i][feature_index] < feature_vector2[j][feature_index]){
+                merged_array += feature_vector1[i++]
+            }else{
+                merged_array += feature_vector2[j++]
+            }
+        }
+        while (i < feature_vector1.size){
+            merged_array += feature_vector1[i++]
+        }
+        while (j < feature_vector2.size){
+            merged_array += feature_vector2[j++]
+        }
+    }
+
+    return merged_array
 }
 
 fun squared_error(dimensions: Int, args: Array<Int>) : Array<Int> {
