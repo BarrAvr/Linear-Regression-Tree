@@ -3,14 +3,35 @@ import java.io.File
 import java.io.InputStream
 import com.opencsv.CSVReaderBuilder
 import com.opencsv.CSVParserBuilder
+import kotlin.math.pow
 
 val FIRST_YEAR = 2004
 
 data class Split_Dataset(val feature_vector: Array<Array<Double>>, val labels: Array<Double>)
+data class Split(val feature: Int, val split_index: Int, val squaredError: Double, val rightAverage: Double, val leftAverage: Double)
+
+//need to create node class
+open class Node<T> {
+    var value: T? = null
+    var left: Node<T>? = null
+    var right: Node<T>? = null
+
+    constructor(value: T){
+        this.value = value
+    }
+}
+
+open class Comparison_Node<T>(value: T): Node<T>(value) {
+    var comparable: T? = null
+
+    constructor(value: T, comparable: T) : this(comparable) {
+        this.comparable = comparable
+    }
+}
 
 class RegressionTree{
 
-    var root = 0
+    var root: Node<Double>? = null
     var max_depth = 0
     var min_split = 20
 
@@ -18,8 +39,18 @@ class RegressionTree{
         this.max_depth = max_depth;
     }
 
-    fun find_best_split(){
+    fun find_best_split(featureVector: Array<Array<Double>>): Split{
         //place split
+        //find best split of each feature and compare squared error
+        var best_split = find_best_feature_split(featureVector, 0)
+        for (i in 1 .. featureVector[0].size){
+            val current_split = find_best_feature_split(featureVector, i)
+            if(current_split.squaredError < best_split.squaredError){
+                best_split = current_split
+            }
+        }
+
+        return best_split
         //average the label values of left leaf and right leaf
         //find square error of left leaf and right leaf
         //check to see if it is the smallest error
@@ -29,12 +60,32 @@ class RegressionTree{
         //can only split a leaf if there are more than min_split datapoints
     }
 
-    fun build_tree(){
+    //assume already sorted based on feature selected
+    //rename the function to have a better title
+    fun find_best_feature_split(featureVector: Array<Array<Double>>, featureIndex: Int): Split{
+        var i = 1
+        var smallestError = -1.0
+        var rightAverage = 0.0
+        var leftAverage = 0.0
+        while (i < featureVector[featureVector.size - 1][featureIndex]){
+            val splitError = squared_error(rightAverage, featureVector.copyOfRange(0, i), featureIndex) + squared_error(leftAverage, featureVector.copyOfRange(i, featureVector.size), featureIndex)
+            if(smallestError == -1.0 || smallestError > splitError){
+                smallestError = splitError
+            }
+            i++
+        }
 
+        return Split(featureIndex, i, smallestError, rightAverage, leftAverage)
     }
 
-    fun fit(){
+    fun build_tree(featureVector: Array<Array<Double>>){
+        //find best split
+        //create right node
+        //create left node
+    }
 
+    fun fit(featureVector: Array<Array<Double>>){
+        build_tree(featureVector)
     }
 
     fun predict(){
@@ -47,32 +98,33 @@ fun main(args: Array<String>) {
     val file = "C:/Users/barra/Desktop/ML Datasets/car mpg dataset/auto-mpg-data.txt"
     var dataset = readFileData(file)
     dataset.forEach { it.forEach { print(it); print(" ") }; println() }
-    val (feature_vector, labels) = splitDataset(dataset)
+    val (featureVector, labels) = splitDataset(dataset)
     println("Features:")
-    feature_vector.forEach { it.forEach { print(it); print(" ") }; println() }
-    println("Labels")
-    labels.forEach { println(it) }
-
+    featureVector.forEach { it.forEach { print(it); print(" ") }; println() }
+//    println("Labels")
+//    labels.forEach { println(it) }
+    val sortedVector = feature_merge_sort(featureVector, 1, true);
+    println("Sorted:")
+    sortedVector.forEach { it.forEach { print(it); print(" ") }; println() }
 }
 
-fun feature_merge_sort(feature_vector: Array<Array<Double>>, feature_index: Int, increasing: Boolean): Array<Array<Double>>{
-    if (increasing){
-        if (feature_vector.size <= 1){
-            return feature_vector
-        }else if (feature_vector.size == 2){
-            if (feature_vector[0][feature_index] > feature_vector[1][feature_index]){
-                swap(feature_vector, 0, 1);
-                return feature_vector
-            }
-        }else{
-            val feature_vector_half1 = emptyArray<Array<Double>>()
-            val feature_vector_half2 = emptyArray<Array<Double>>()
-            return feature_merge(feature_merge_sort(feature_vector_half1, feature_index, increasing), feature_merge_sort(feature_vector_half2, feature_index, increasing), feature_index, increasing)
+//finish this
+fun feature_merge_sort(featureVector: Array<Array<Double>>, featureIndex: Int, increasing: Boolean): Array<Array<Double>>{
+    return if (featureVector.size <= 1){
+        featureVector
+    }else if (featureVector.size == 2){
+        if (increasing && featureVector[0][featureIndex] > featureVector[1][featureIndex]){
+            swap(featureVector, 0, 1)
+        } else if (!increasing && featureVector[0][featureIndex] < featureVector[1][featureIndex]){
+            swap(featureVector, 0, 1)
         }
+        featureVector
     }else{
-        return feature_vector
+        feature_merge(
+            feature_merge_sort(featureVector.copyOfRange(0, featureVector.size/2), featureIndex, increasing),
+            feature_merge_sort(featureVector.copyOfRange(featureVector.size/2, featureVector.size), featureIndex, increasing),
+            featureIndex, increasing)
     }
-    return feature_vector
 }
 
 fun swap(array: Array<Array<Double>>, index1: Int, index2: Int){
@@ -81,45 +133,49 @@ fun swap(array: Array<Array<Double>>, index1: Int, index2: Int){
     array[index2] = temp
 }
 
-fun feature_merge(feature_vector1: Array<Array<Double>>, feature_vector2: Array<Array<Double>>, feature_index: Int, increasing: Boolean): Array<Array<Double>>{
-    var merged_array = emptyArray<Array<Double>>()
+fun feature_merge(featureVector1: Array<Array<Double>>, featureVector2: Array<Array<Double>>, featureIndex: Int, increasing: Boolean): Array<Array<Double>>{
+    var mergedArray = emptyArray<Array<Double>>()
     var i = 0
     var j = 0
     if(increasing){
-        while (i < feature_vector1.size && j < feature_vector2.size){
-            if(feature_vector1[i][feature_index] < feature_vector2[j][feature_index]){
-                merged_array += feature_vector1[i++]
-            }else{
-                merged_array += feature_vector2[j++]
-            }
+        while (i < featureVector1.size && j < featureVector2.size){
+            mergedArray +=
+                if(featureVector1[i][featureIndex] < featureVector2[j][featureIndex]){
+                    featureVector1[i++]
+                }else{
+                    featureVector2[j++]
+                }
         }
-        while (i < feature_vector1.size){
-            merged_array += feature_vector1[i++]
-        }
-        while (j < feature_vector2.size){
-            merged_array += feature_vector2[j++]
-        }
+        while (i < featureVector1.size){ mergedArray += featureVector1[i++] }
+        while (j < featureVector2.size){ mergedArray += featureVector2[j++] }
     }else{
-        while (i < feature_vector1.size && j < feature_vector2.size){
-            if(feature_vector1[i][feature_index] < feature_vector2[j][feature_index]){
-                merged_array += feature_vector1[i++]
+        while (i < featureVector1.size && j < featureVector2.size){
+            mergedArray += if(featureVector1[i][featureIndex] < featureVector2[j][featureIndex]){
+                featureVector1[i++]
             }else{
-                merged_array += feature_vector2[j++]
+                featureVector2[j++]
             }
         }
-        while (i < feature_vector1.size){
-            merged_array += feature_vector1[i++]
-        }
-        while (j < feature_vector2.size){
-            merged_array += feature_vector2[j++]
-        }
+        while (i < featureVector1.size){ mergedArray += featureVector1[i++] }
+        while (j < featureVector2.size){ mergedArray += featureVector2[j++] }
     }
 
-    return merged_array
+    return mergedArray
+}
+
+/* squared_error function:
+ * This calculates the total square error of a set of feature vectors from the average distance given.
+ */
+fun squared_error(average: Double, featureVector: Array<Array<Double>>, featureIndex: Int) : Double{
+    var totalError = 0.0
+    for(datapoint in featureVector){
+        totalError += (average - datapoint[featureIndex]).pow(2)
+    }
+    return totalError
 }
 
 fun squared_error(dimensions: Int, args: Array<Int>) : Array<Int> {
-    val error = Array<Int>(dimensions, {i -> 0})
+    val error = Array<Int>(args.size, {i -> 0})
     for (i in 0 until dimensions){
         error[i] = (args[i] - args[i - dimensions]) * (args[i] - args[i - dimensions])
     }
